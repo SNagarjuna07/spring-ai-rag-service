@@ -1,0 +1,61 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_DB: ${DB_NAME:-ragdb}
+      POSTGRES_USER: ${DB_USER:-ragadmin}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-ragpass}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-ragadmin} -d ${DB_NAME:-ragdb}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - rag_pg_data:/var/lib/postgresql/data
+
+  ollama:
+    image: ollama/ollama:latest
+    volumes:
+      - rag_ollama_data:/root/.ollama
+    healthcheck:
+      test: ["CMD-SHELL", "ollama list || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  ollama-pull:
+    image: ollama/ollama:latest
+    depends_on:
+      ollama:
+        condition: service_healthy
+    environment:
+      OLLAMA_HOST: ollama:11434
+    entrypoint: ["/bin/sh", "-c", "ollama pull nomic-embed-text"]
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      GROQ_API_KEY: ${GROQ_API_KEY}
+      GROQ_MAX_TOKENS: ${GROQ_MAX_TOKENS}
+      GROQ_TEMPERATURE: ${GROQ_TEMPERATURE}
+      GROQ_MODEL: ${GROQ_MODEL}
+      GROQ_BASE_URL: ${GROQ_BASE_URL}
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME:-ragdb}
+      DB_USER: ${DB_USER:-ragadmin}
+      DB_PASSWORD: ${DB_PASSWORD:-ragpass}
+      OLLAMA_BASE_URL: http://ollama:11434
+    depends_on:
+      postgres:
+        condition: service_healthy
+      ollama-pull:
+        condition: service_completed_successfully
+
+volumes:
+  rag_pg_data:
+  rag_ollama_data:
