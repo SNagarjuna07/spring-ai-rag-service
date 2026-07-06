@@ -23,9 +23,6 @@ data, the system retrieves relevant context from your own documents at query tim
 the model to answer from that context. If the answer isn't in the documents, Vera says so
 instead of hallucinating a plausible-sounding guess.
 
-```
-Chatbot (P1) → Tool-using agent (P2) → ▶ Retrieval-augmented assistant (P3) ◀ → MCP server (P4)
-```
 
 ## Architecture
 
