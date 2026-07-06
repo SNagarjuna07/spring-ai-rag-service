@@ -1,0 +1,74 @@
+spring:
+  application:
+    name: spring-ai-rag-service
+
+  # ---- Document registry DB (plain JPA, separate from pgvector's own vector_store table) ----
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:ragdb}
+    username: ${DB_USER:ragadmin}
+    password: ${DB_PASSWORD:ragpass}
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: true
+
+  servlet:
+    multipart:
+      max-file-size: 5MB
+      max-request-size: 5MB
+
+  ai:
+    model:
+      chat: openai # OpenAI for chat only
+      embedding: ollama # Ollama for embedding only
+
+    # ---- Chat model: Groq (OpenAI-compatible) ----
+    # used only for chat, no embeddings
+    openai:
+      api-key: ${GROQ_API_KEY}
+      base-url: ${GROQ_BASE_URL}
+      chat:
+        model: ${GROQ_MODEL}
+        temperature: ${GROQ_TEMPERATURE}  # usually lower because RAG answers should stay close to retrieved context
+        max-completion-tokens: ${GROQ_MAX_TOKENS}
+
+
+    # ---- Embedding model: Ollama (local, free, containerized) ----
+    # Used only for embedding not for chat
+    ollama:
+      base-url: ${OLLAMA_BASE_URL:http://localhost:11434}
+      init:
+        pull-model-strategy: when_missing   # auto-pull nomic-embed-text if not already present
+      embedding:
+        model: nomic-embed-text
+
+    # ---- Vector store: pgvector, same Postgres instance as the document registry ----
+    vectorstore:
+      pgvector:
+        initialize-schema: true
+        dimensions: 768              # must match nomic-embed-text's output size
+        distance-type: COSINE_DISTANCE
+        index-type: HNSW
+
+  docker:
+    compose:
+      file: compose.yaml
+      
+server:
+  port: 8080
+
+logging:
+  level:
+    org.springframework.ai: INFO
+    org.springframework.ai.chat.client.advisor: DEBUG   # verify actual retrieval/advisor behavior
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, info, metrics
